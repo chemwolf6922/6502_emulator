@@ -67,7 +67,11 @@ typedef struct
     e6502_addressing_func_t addr_func;
 } e6502_instruction_t;
 
-/** instructions */
+/** 
+ * instructions 
+ * @link{http://6502.org/tutorials/6502opcodes.html} 
+ * @link{https://www.masswerk.at/6502/6502_instruction_set.html}
+ */
 static void instruction_LDA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
 static void instruction_LDX(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
 static void instruction_LDY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
@@ -464,8 +468,6 @@ void e6502_run_forever()
                 e6502.SP++;
                 e6502.store(e6502.SP+E6502_STACK_OFFSET,get_low_byte(e6502.PC));
                 e6502.SP++;
-                /** B flag only exists in stack */
-                e6502.status.bits.B = 0;
                 e6502.store(e6502.SP+E6502_STACK_OFFSET,e6502.status.byte);
                 e6502.SP++;
                 /** set PC */
@@ -473,7 +475,7 @@ void e6502_run_forever()
                 /** set I */
                 e6502.status.bits.I = 1;
             }
-            if(e6502.interrupt.irq_pending)
+            else if(e6502.interrupt.irq_pending)
             {
                 /** handle irq */
                 e6502.interrupt.irq_pending = false;
@@ -482,8 +484,6 @@ void e6502_run_forever()
                 e6502.SP++;
                 e6502.store(e6502.SP+E6502_STACK_OFFSET,get_low_byte(e6502.PC));
                 e6502.SP++;
-                /** B flag only exists in stack */
-                e6502.status.bits.B = 0;
                 e6502.store(e6502.SP+E6502_STACK_OFFSET,e6502.status.byte);
                 e6502.SP++;
                 /** set PC */
@@ -516,7 +516,10 @@ void e6502_trigger_irq()
     {
         e6502.interrupt.mutex_take();
         if(!e6502.status.bits.I)
+        {
             e6502.interrupt.irq_pending = true;
+            e6502.status.bits.B = 0;
+        }
         e6502.interrupt.mutex_give();
     }
 }
@@ -526,8 +529,8 @@ void e6502_trigger_nmi()
     if(e6502.interrupt.mutex_take && e6502.interrupt.mutex_give)
     {
         e6502.interrupt.mutex_take();
-        /** should be atomic, mutex is not requred here */
         e6502.interrupt.nmi_pending = true;
+        e6502.status.bits.B = 0;
         e6502.interrupt.mutex_give();
     }
 }
@@ -536,6 +539,8 @@ void e6502_trigger_nmi()
 
 #define set_Z_flag(r) {e6502.status.bits.Z = ((r)==0);}
 #define set_N_flag(r) {e6502.status.bits.N = ((r)>>7)&0x01;}
+#define bin_as_dec(b) (((b)&0xF)+(((b)>>4)&0xF)*10)
+#define dec_as_bin(d) (((d)%10)+(((d)/10)<<4))
 
 static void instruction_LDA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
 {
@@ -576,7 +581,6 @@ static void instruction_LDY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
     set_N_flag(result);
     set_Z_flag(result);
 }
-
 static void instruction_STA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
 {
     if(mode == E6502_INS_MODE_ADDR)
@@ -598,7 +602,6 @@ static void instruction_STY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
     else if(mode==E6502_INS_MODE_IMMEDIATE)
         e6502.store(imm,e6502.Y);
 }
-
 static void instruction_TAX(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
 {
     e6502.X = e6502.A;
@@ -624,71 +627,468 @@ static void instruction_TYA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
     e6502.A = e6502.Y;
 }
 
-/** @todo */
-static void instruction_PHA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_PHP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_PLA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_PLP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+
+static void instruction_PHA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.store(e6502.SP+E6502_STACK_OFFSET,e6502.A);
+    e6502.SP++;
+}
+static void instruction_PHP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.store(e6502.SP+E6502_STACK_OFFSET,e6502.status.byte);
+    e6502.SP++;
+}
+static void instruction_PLA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.SP--;
+    e6502.A = e6502.load(e6502.SP+E6502_STACK_OFFSET);
+}
+static void instruction_PLP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.SP--;
+    e6502.status.byte = e6502.load(e6502.SP+E6502_STACK_OFFSET);
+}
 
 
-static void instruction_DEC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_DEX(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_DEY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_INC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_INX(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_INY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_DEC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    uint8_t result;
+    result = e6502.load(addr);
+    result--;
+    e6502.store(addr,result);
+    set_N_flag(result);
+    set_Z_flag(result);
+}
+static void instruction_DEX(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.X--;
+}
+static void instruction_DEY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.Y--;
+}
+static void instruction_INC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    uint8_t result;
+    result = e6502.load(addr);
+    result++;
+    e6502.store(addr,result);
+    set_N_flag(result);
+    set_Z_flag(result);
+}
+static void instruction_INX(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.X++;
+}
+static void instruction_INY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.Y++;
+}
 
 
-static void instruction_ADC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_SBC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_ADC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode==E6502_INS_MODE_NONE)
+        return;
+    if(!e6502.status.bits.D)
+    {
+        /** binary mode */
+        uint8_t A = e6502.A;
+        uint8_t B;
+        if(mode==E6502_INS_MODE_IMMEDIATE)
+            B = imm;
+        else
+            B = e6502.load(addr);
+        uint16_t buf = A+B+e6502.status.bits.C;
+        uint8_t result = buf & 0xFF;
+        e6502.status.bits.C = (buf>>8) & 0x1;
+        e6502.status.bits.V = ((!(A&0x80))&&(!(B&0x80))&&(result&0x80)) || 
+                               ((A&0x80)&&(B&0x80)&&(!(result&0x80)));
+        e6502.A = result;
+        set_N_flag(result);
+        set_Z_flag(result);
+    }
+    else
+    {
+        /** BCD mode */
+        uint8_t A = bin_as_dec(e6502.A);
+        uint8_t B;
+        if(mode==E6502_INS_MODE_IMMEDIATE)
+            B = imm;
+        else
+            B = e6502.load(addr);
+        B = bin_as_dec(B);
+        uint16_t buf = A+B+e6502.status.bits.C;
+        uint8_t result = buf % 100;
+        result = dec_as_bin(result);
+        e6502.status.bits.C = buf > 99;
+        e6502.status.bits.V = buf > 99;
+        e6502.A = result;
+        set_N_flag(result);
+        set_Z_flag(result);
+    }
+}
+static void instruction_SBC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode==E6502_INS_MODE_NONE)
+        return;
+    if(!e6502.status.bits.D)
+    {
+        /** binary mode */
+        uint8_t A = e6502.A;
+        uint8_t B;
+        if(mode==E6502_INS_MODE_IMMEDIATE)
+            B = imm;
+        else
+            B = e6502.load(addr);
+        uint16_t buf = A+((~B)&0xFF)+1-(!e6502.status.bits.C);
+        uint8_t result = buf & 0xFF;
+        e6502.status.bits.C = (buf>>8) & 0x1;   /** not borrow */
+        e6502.status.bits.V = ((!(A&0x80))&&(B&0x80)&&(result&0x80)) || 
+                               ((A&0x80)&&(!(B&0x80))&&(!(result&0x80)));
+        e6502.A = result;
+        set_N_flag(result);
+        set_Z_flag(result);
+    }
+    else
+    {
+        /** BCD mode */
+        uint8_t A = bin_as_dec(e6502.A);
+        uint8_t B;
+        if(mode==E6502_INS_MODE_IMMEDIATE)
+            B = imm;
+        else
+            B = e6502.load(addr);
+        B = bin_as_dec(B);
+        uint16_t buf = A-B-(!e6502.status.bits.C);
+        uint8_t result = (buf+100) % 100;
+        result = dec_as_bin(result);
+        e6502.status.bits.C = A>=B; /** not borrow */
+        e6502.status.bits.V = A<B;
+        e6502.A = result;
+        set_N_flag(result);
+        set_Z_flag(result);
+    }
+}
 
 
-static void instruction_AND(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_EOR(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_ORA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_AND(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+        return;
+    uint8_t result;
+    if(mode == E6502_INS_MODE_IMMEDIATE)
+        result = e6502.A & imm;
+    else
+        result = e6502.A & e6502.load(addr);
+    e6502.A = result;
+    set_N_flag(result);
+    set_Z_flag(result);
+}
+static void instruction_EOR(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+        return;
+    uint8_t result;
+    if(mode == E6502_INS_MODE_IMMEDIATE)
+        result = e6502.A ^ imm;
+    else
+        result = e6502.A ^ e6502.load(addr);
+    e6502.A = result;
+    set_N_flag(result);
+    set_Z_flag(result);
+}
+static void instruction_ORA(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+        return;
+    uint8_t result;
+    if(mode == E6502_INS_MODE_IMMEDIATE)
+        result = e6502.A | imm;
+    else
+        result = e6502.A | e6502.load(addr);
+    e6502.A = result;
+    set_N_flag(result);
+    set_Z_flag(result);
+}
 
 
-static void instruction_ASL(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_LSR(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_ROL(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_ROR(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_ASL(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+    {
+        e6502.status.bits.C = (e6502.A >> 7) & 0x1;
+        e6502.A = e6502.A << 1;
+        set_N_flag(e6502.A);
+        set_Z_flag(e6502.A);
+    }
+    else if(mode == E6502_INS_MODE_ADDR)
+    {
+        uint8_t result = e6502.load(addr);
+        e6502.status.bits.C = (result>>7) & 0x1;
+        result = result << 1;
+        set_N_flag(result);
+        set_Z_flag(result);
+        e6502.store(addr,result);
+    }
+}
+static void instruction_LSR(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+    {
+        e6502.status.bits.C = e6502.A & 0x1;
+        e6502.A = e6502.A >> 1;
+        set_N_flag(e6502.A);
+        set_Z_flag(e6502.A);
+    }
+    else if(mode == E6502_INS_MODE_ADDR)
+    {
+        uint8_t result = e6502.load(addr);
+        e6502.status.bits.C = result & 0x1;
+        result = result >> 1;
+        set_N_flag(result);
+        set_Z_flag(result);
+        e6502.store(addr,result);
+    }
+}
+static void instruction_ROL(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+    {
+        uint16_t temp = e6502.A;
+        temp = temp << 1;
+        temp |= e6502.status.bits.C;
+        e6502.status.bits.C = (temp >> 8) & 0x1;
+        e6502.A = temp & 0xFF;
+        set_N_flag(e6502.A);
+        set_Z_flag(e6502.A);
+    }
+    else if(mode == E6502_INS_MODE_ADDR)
+    {
+        uint16_t temp = e6502.load(addr);
+        temp = temp << 1;
+        temp |= e6502.status.bits.C;
+        e6502.status.bits.C = (temp >> 8) & 0x1;
+        uint8_t result = temp & 0xFF;
+        set_N_flag(result);
+        set_Z_flag(result);
+        e6502.store(addr,result);
+    }
+}
+static void instruction_ROR(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+    {
+        uint16_t temp = (((uint16_t)e6502.status.bits.C) << 8) | e6502.A;
+        e6502.status.bits.C = temp & 0x1;
+        temp = temp >> 1;
+        e6502.A = temp & 0xFF;
+        set_N_flag(e6502.A);
+        set_Z_flag(e6502.A);
+    }
+    else if(mode == E6502_INS_MODE_ADDR)
+    {
+        uint16_t temp = (((uint16_t)e6502.status.bits.C) << 8) | e6502.load(addr);
+        e6502.status.bits.C = temp & 0x1;
+        temp = temp >> 1;
+        uint8_t result = temp & 0xFF;
+        set_N_flag(result);
+        set_Z_flag(result);
+        e6502.store(addr,result);
+    }
+}
 
 
-static void instruction_CLC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_CLD(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_CLI(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_CLV(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_SEC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_SED(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_SEI(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_CLC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.status.bits.C = 0;
+}
+static void instruction_CLD(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.status.bits.D = 0;
+}
+static void instruction_CLI(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(e6502.interrupt.mutex_take && e6502.interrupt.mutex_give)
+        e6502.interrupt.mutex_take();
+    e6502.status.bits.I = 0;
+    if(e6502.interrupt.mutex_take && e6502.interrupt.mutex_give)
+        e6502.interrupt.mutex_give();
+}
+static void instruction_CLV(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.status.bits.V = 0;
+}
+static void instruction_SEC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.status.bits.C = 1;
+}
+static void instruction_SED(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.status.bits.D = 1;
+}
+static void instruction_SEI(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(e6502.interrupt.mutex_take && e6502.interrupt.mutex_give)
+        e6502.interrupt.mutex_take();
+    e6502.status.bits.I = 1;
+    if(e6502.interrupt.mutex_take && e6502.interrupt.mutex_give)
+        e6502.interrupt.mutex_give();
+}
 
 
-static void instruction_CMP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_CPX(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_CPY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_CMP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+        return;
+    uint8_t B = mode==E6502_INS_MODE_IMMEDIATE?imm:e6502.load(addr);
+    uint16_t temp = e6502.A + ((~B)&0xFF) + 1;
+    uint8_t result = temp & 0xFF;
+    e6502.status.bits.C = (temp >> 8) & 0x1;
+    set_N_flag(result);
+    set_Z_flag(result);
+}
+static void instruction_CPX(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+        return;
+    uint8_t B = mode==E6502_INS_MODE_IMMEDIATE?imm:e6502.load(addr);
+    uint16_t temp = e6502.X + ((~B)&0xFF) + 1;
+    uint8_t result = temp & 0xFF;
+    e6502.status.bits.C = (temp >> 8) & 0x1;
+    set_N_flag(result);
+    set_Z_flag(result);
+}
+static void instruction_CPY(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode == E6502_INS_MODE_NONE)
+        return;
+    uint8_t B = mode==E6502_INS_MODE_IMMEDIATE?imm:e6502.load(addr);
+    uint16_t temp = e6502.Y + ((~B)&0xFF) + 1;
+    uint8_t result = temp & 0xFF;
+    e6502.status.bits.C = (temp >> 8) & 0x1;
+    set_N_flag(result);
+    set_Z_flag(result);
+}
 
 
-static void instruction_BCC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_BCS(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_BEQ(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_BMI(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_BNE(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_BPL(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_BVC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_BVS(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_BCC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    if(!e6502.status.bits.C)
+        e6502.PC = addr;
+}
+static void instruction_BCS(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    if(e6502.status.bits.C)
+        e6502.PC = addr;
+}
+static void instruction_BEQ(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    if(e6502.status.bits.Z)
+        e6502.PC = addr;
+}
+static void instruction_BMI(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    if(e6502.status.bits.N)
+        e6502.PC = addr;
+}
+static void instruction_BNE(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    if(!e6502.status.bits.Z)
+        e6502.PC = addr;
+}
+static void instruction_BPL(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    if(!e6502.status.bits.N)
+        e6502.PC = addr;
+}
+static void instruction_BVC(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    if(!e6502.status.bits.V)
+        e6502.PC = addr;
+}
+static void instruction_BVS(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    if(e6502.status.bits.V)
+        e6502.PC = addr;
+}
 
 
-static void instruction_JMP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_JSR(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_RTS(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_JMP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    e6502.PC = addr;
+}
+static void instruction_JSR(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    e6502.store((e6502.SP++)+E6502_STACK_OFFSET,get_high_byte(e6502.PC-1));
+    e6502.store((e6502.SP++)+E6502_STACK_OFFSET,get_low_byte(e6502.PC-1));
+    e6502.PC = addr;
+}
+static void instruction_RTS(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    uint8_t l = e6502.load((--e6502.SP)+E6502_STACK_OFFSET);
+    uint8_t h = e6502.load((--e6502.SP)+E6502_STACK_OFFSET);
+    e6502.PC = pack_2u8(h,l)+1;
+}
 
 
-static void instruction_BRK(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_RTI(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_BRK(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(e6502.interrupt.mutex_take && e6502.interrupt.mutex_give)
+        e6502.interrupt.mutex_take();
+    e6502.interrupt.nmi_pending = true;
+    e6502.status.bits.B = 1;
+    if(e6502.interrupt.mutex_take && e6502.interrupt.mutex_give)
+        e6502.interrupt.mutex_give();
+    /** push op PC+2 into stack */
+    e6502.PC++;
+}
+static void instruction_RTI(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    e6502.status.byte = e6502.load((--e6502.SP)+E6502_STACK_OFFSET);
+    uint8_t l = e6502.load((--e6502.SP)+E6502_STACK_OFFSET);
+    uint8_t h = e6502.load((--e6502.SP)+E6502_STACK_OFFSET);
+    e6502.PC = pack_2u8(h,l);
+}
 
 
-static void instruction_BIT(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-static void instruction_NOP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
+static void instruction_BIT(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{
+    if(mode != E6502_INS_MODE_ADDR)
+        return;
+    uint8_t B = e6502.load(addr);
+    uint8_t temp = e6502.A & B;
+    set_Z_flag(temp);
+    set_N_flag(B);
+    e6502.status.bits.V = (B >> 6) & 0x1;
+}
+static void instruction_NOP(e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+{    
+}
 
 
 /** addressing mode implementations */
