@@ -1,13 +1,14 @@
 #include "test_framework.h"
 
-int main(int argc, char const *argv[])
-{
+TEST_MAIN(
     DEFINE_TEST(LDA immediate,
         PROGRAM( 
             LDA_IMM(0x12),
         );
         RUN_TEST(1);
         VALIDATE_REG(A, 0x12);
+        VALIDATE_FLAG(Z, 0);
+        VALIDATE_FLAG(N, 0);
     );
     DEFINE_TEST(LDA absolute,
         memory[0x1000] = 0x12;
@@ -16,6 +17,8 @@ int main(int argc, char const *argv[])
         );
         RUN_TEST(1);
         VALIDATE_REG(A, 0x12);
+        VALIDATE_FLAG(Z, 0);
+        VALIDATE_FLAG(N, 0);
     );
     DEFINE_TEST(LDA zero_page,
         memory[0x10] = 0x12;
@@ -24,6 +27,8 @@ int main(int argc, char const *argv[])
         );
         RUN_TEST(1);
         VALIDATE_REG(A, 0x12);
+        VALIDATE_FLAG(Z, 0);
+        VALIDATE_FLAG(N, 0);
     );
     DEFINE_TEST(LDA absolute_x,
         memory[0x1001] = 0x12;
@@ -33,6 +38,8 @@ int main(int argc, char const *argv[])
         );
         RUN_TEST(2);
         VALIDATE_REG(A, 0x12);
+        VALIDATE_FLAG(Z, 0);
+        VALIDATE_FLAG(N, 0);
     );
     DEFINE_TEST(LDA absolute_y,
         memory[0x1001] = 0x12;
@@ -42,6 +49,8 @@ int main(int argc, char const *argv[])
         );
         RUN_TEST(2);
         VALIDATE_REG(A, 0x12);
+        VALIDATE_FLAG(Z, 0);
+        VALIDATE_FLAG(N, 0);
     );
     DEFINE_TEST(LDA zero_page_x,
         memory[0x10] = 0x12;
@@ -51,6 +60,8 @@ int main(int argc, char const *argv[])
         );
         RUN_TEST(2);
         VALIDATE_REG(A, 0x12);
+        VALIDATE_FLAG(Z, 0);
+        VALIDATE_FLAG(N, 0);
     );
     DEFINE_TEST(LDA x_indirect,
         memory[0x11] = 0x00;
@@ -62,6 +73,8 @@ int main(int argc, char const *argv[])
         );
         RUN_TEST(2);
         VALIDATE_REG(A, 0x12);
+        VALIDATE_FLAG(Z, 0);
+        VALIDATE_FLAG(N, 0);
     );
     DEFINE_TEST(LDA indirect_y,
         memory[0x10] = 0x00;
@@ -73,7 +86,23 @@ int main(int argc, char const *argv[])
         );
         RUN_TEST(2);
         VALIDATE_REG(A, 0x12);
+        VALIDATE_FLAG(Z, 0);
+        VALIDATE_FLAG(N, 0);
     );
-    return 0;
-}
-
+    DEFINE_TEST(LDA N flag,
+        PROGRAM(
+            LDA_IMM(0x80),
+        );
+        RUN_TEST(1);
+        VALIDATE_REG(A, 0x80);
+        VALIDATE_FLAG(N, 1);
+    );
+    DEFINE_TEST(LDA Z flag,
+        PROGRAM(
+            LDA_IMM(0x00),
+        );
+        RUN_TEST(1);
+        VALIDATE_REG(A, 0x00);
+        VALIDATE_FLAG(Z, 1);
+    );
+)

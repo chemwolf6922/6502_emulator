@@ -99,12 +99,23 @@ void free_program_strs(char** strs);
         __VA_ARGS__; \
         if (test_pass) \
         { \
-            printf("\033[0;32m"); \
+            printf("\n\033[0;32mTest %s PASS\033[0m\n", test_name); \
+            pass_count ++; \
         } \
         else \
         { \
-            printf("\033[0;31m"); \
+            printf("\n\033[0;31mTest %s FAIL\033[0m\n", test_name); \
+            fail_count ++; \
         } \
-        printf("\nTest %s %s\n", test_name, test_pass ? "PASS" : "FAIL"); \
-        printf("\033[0m"); \
     } while(0)
+
+#define TEST_MAIN(...) \
+    int main(int argc, char const *argv[]) \
+    { \
+        printf("\n--- Running %s ---\n", argv[0]); \
+        int pass_count = 0; \
+        int fail_count = 0; \
+        __VA_ARGS__; \
+        printf("--- %s PASS: %d, FAIL: %d ---\n", argv[0], pass_count, fail_count); \
+        return fail_count != 0; \
+    }

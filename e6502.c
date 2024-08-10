@@ -629,18 +629,26 @@ INST_DEF(STY)
 INST_DEF(TAX)
 {
     this->reg.X = this->reg.A;
+    SET_N(this, this->reg.X);
+    SET_Z(this, this->reg.X);
 }
 INST_DEF(TAY)
 {
     this->reg.Y = this->reg.A;
+    SET_N(this, this->reg.Y);
+    SET_Z(this, this->reg.Y);
 }
 INST_DEF(TSX)
 {
     this->reg.X = this->reg.SP;
+    SET_N(this, this->reg.X);
+    SET_Z(this, this->reg.X);
 }
 INST_DEF(TXA)
 {
     this->reg.A = this->reg.X;
+    SET_N(this, this->reg.A);
+    SET_Z(this, this->reg.A);
 }
 INST_DEF(TXS)
 {
@@ -649,6 +657,8 @@ INST_DEF(TXS)
 INST_DEF(TYA)
 {
     this->reg.A = this->reg.Y;
+    SET_N(this, this->reg.A);
+    SET_Z(this, this->reg.A);
 }
 
 

@@ -11,13 +11,22 @@ all: $(ALL_TESTS)
 
 .PHONY: run
 run: $(ALL_TESTS)
-	@for test in $(ALL_TESTS); do \
-		echo "--- Running $$test ---"; \
+	@failed=0; \
+	for test in $(ALL_TESTS); do \
 		./$$test; \
-	done
+		if [ $$? -ne 0 ]; then \
+			failed=1; \
+		fi; \
+	done; \
+	if [ $$failed -eq 1 ]; then \
+		exit 1; \
+	fi;
 
 %test: %test.c $(COMMON_SRC) $(COMMON_HEADERS)
 	$(CC) $(CFALGS) -o $@ $< $(COMMON_SRC)
+
+run_%test: %test
+	./$<
 
 .PHONY: clean
 clean:
