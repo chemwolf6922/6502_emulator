@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define E6502_VEC_NMI (0xFFFA)
+#define E6502_VEC_RST (0xFFFC)
+#define E6502_VEC_IRQ (0xFFFE)
+
 typedef struct e6502_s e6502_t;
 struct e6502_s
 {

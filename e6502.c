@@ -3,10 +3,6 @@
 #include <stdbool.h>
 #include "e6502.h"
 
-#define E6502_VEC_NMI (0xFFFA)
-#define E6502_VEC_RST (0xFFFC)
-#define E6502_VEC_IRQ (0xFFFE)
-
 #define E6502_STACK_OFFSET (0x100)
 
 #define LOAD(this, addr) ((this)->cb.load((addr), (this)->cb.bus_ctx))
@@ -30,12 +26,12 @@
 #define GET_HIGH_BYTE(v) (((v)>>8)&0xFF)
 
 /** instruction mode, not addressing mode */
-typedef enum
+enum
 {
     E6502_INS_MODE_NONE,
     E6502_INS_MODE_IMMEDIATE,
     E6502_INS_MODE_ADDR
-} e6502_ins_mode_t;
+};
 
 /** 
  * instructions 
@@ -43,7 +39,7 @@ typedef enum
  * @link{https://www.masswerk.at/6502/6502_instruction_set.html}
  */
 #define INST(name) instruction_##name
-#define INST_DEF(name) static void INST(name)(e6502_t* this, e6502_ins_mode_t mode, uint8_t imm, uint16_t addr)
+#define INST_DEF(name) static void INST(name)(e6502_t* this, int mode, uint8_t imm, uint16_t addr)
 
 INST_DEF(LDA);
 INST_DEF(LDX);
@@ -115,7 +111,7 @@ INST_DEF(NOP);
 
 /** addressing modes */
 #define ADDR_MODE(name) addr_mode_##name
-#define ADDR_MODE_DEF(name) static e6502_ins_mode_t ADDR_MODE(name)(e6502_t* this, uint8_t* p_imm, uint16_t* p_addr)
+#define ADDR_MODE_DEF(name) static int ADDR_MODE(name)(e6502_t* this, uint8_t* p_imm, uint16_t* p_addr)
 
 ADDR_MODE_DEF(accumulator);
 ADDR_MODE_DEF(absolute);
@@ -133,8 +129,8 @@ ADDR_MODE_DEF(zeropage_y);
 
 typedef struct
 {
-    void (*instruction)(e6502_t* this, e6502_ins_mode_t mode, uint8_t imm, uint16_t addr);
-    e6502_ins_mode_t (*addressing_mode)(e6502_t* this, uint8_t* p_imm, uint16_t* p_addr);
+    void (*instruction)(e6502_t* this, int mode, uint8_t imm, uint16_t addr);
+    int (*addressing_mode)(e6502_t* this, uint8_t* p_imm, uint16_t* p_addr);
 } e6502_instruction_t;
 
 #define INST_ENTRY(inst, addr_mode) {INST(inst),ADDR_MODE(addr_mode)}
@@ -483,9 +479,9 @@ static inline void step_internal(e6502_t* this)
         this->reg.status.bits.I = 1;
     }
     /** fetch & decoding */
-    uint8_t op = this->cb.load(this->reg.PC++, this->cb.bus_ctx);
+    uint8_t op = LOAD(this, this->reg.PC++);
     const e6502_instruction_t* inst = &instructions[op];
-    e6502_ins_mode_t mode = E6502_INS_MODE_NONE;
+    int mode = E6502_INS_MODE_NONE;
     uint8_t imm = 0;
     uint16_t addr = 0;
     if(inst->addressing_mode)
@@ -562,7 +558,7 @@ INST_DEF(LDA)
 {
     uint8_t result;
     if(mode == E6502_INS_MODE_IMMEDIATE)
-        result = LOAD(this, imm);
+        result = imm;
     else if(mode == E6502_INS_MODE_ADDR)
         result = LOAD(this, addr);
     else
@@ -575,7 +571,7 @@ INST_DEF(LDX)
 {
     uint8_t result;
     if(mode == E6502_INS_MODE_IMMEDIATE)
-        result = LOAD(this, imm);
+        result = imm;
     else if(mode == E6502_INS_MODE_ADDR)
         result = LOAD(this, addr);
     else
@@ -588,7 +584,7 @@ INST_DEF(LDY)
 {
     uint8_t result;
     if(mode == E6502_INS_MODE_IMMEDIATE)
-        result = LOAD(this, imm);
+        result = imm;
     else if(mode == E6502_INS_MODE_ADDR)
         result = LOAD(this, addr);
     else
