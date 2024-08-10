@@ -21,4 +21,4 @@ run: $(ALL_TESTS)
 
 .PHONY: clean
 clean:
-	rm -f $(ALL_TESTS)
+	rm -f *test
