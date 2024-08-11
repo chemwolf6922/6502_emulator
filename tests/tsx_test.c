@@ -7,9 +7,9 @@ TEST_MAIN(
             TSX(),
         );
         RUN_TEST(2);
-        VALIDATE_REG(X, 0x01);
+        VALIDATE_REG(X, 0xFF);
         VALIDATE_FLAG(Z, 0);
-        VALIDATE_FLAG(N, 0);
+        VALIDATE_FLAG(N, 1);
     );
     DEFINE_TEST(TSX N flag,
         PROGRAM(
@@ -17,9 +17,9 @@ TEST_MAIN(
             TSX(),
         );
         RUN_TEST(2);
-        VALIDATE_REG(X, 0xFF);
+        VALIDATE_REG(X, 0x01);
         VALIDATE_FLAG(Z, 0);
-        VALIDATE_FLAG(N, 1);
+        VALIDATE_FLAG(N, 0);
     );
     DEFINE_TEST(TSX Z flag,
         PROGRAM(

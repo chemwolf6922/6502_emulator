@@ -16,10 +16,10 @@
 #define STACK_PUSH(this, value) \
     do \
     { \
-        STORE((this), ((this)->reg.SP++)+E6502_STACK_OFFSET, (value)); \
+        STORE((this), ((this)->reg.SP--)+E6502_STACK_OFFSET, (value)); \
     } while (0);
 
-#define STACK_POP(this) (LOAD((this), (--((this)->reg.SP))+E6502_STACK_OFFSET))
+#define STACK_POP(this) (LOAD((this), (++((this)->reg.SP))+E6502_STACK_OFFSET))
 
 #define PACK_2U8(h,l) ((((uint16_t)(h))<<8)|((uint16_t)(l)))
 #define GET_LOW_BYTE(v) ((v)&0xFF)
@@ -673,6 +673,8 @@ INST_DEF(PHP)
 INST_DEF(PLA)
 {
     this->reg.A = STACK_POP(this);
+    SET_N(this, this->reg.A);
+    SET_Z(this, this->reg.A);
 }
 INST_DEF(PLP)
 {
@@ -694,10 +696,14 @@ INST_DEF(DEC)
 INST_DEF(DEX)
 {
     this->reg.X--;
+    SET_N(this, this->reg.X);
+    SET_Z(this, this->reg.X);
 }
 INST_DEF(DEY)
 {
     this->reg.Y--;
+    SET_N(this, this->reg.Y);
+    SET_Z(this, this->reg.Y);
 }
 INST_DEF(INC)
 {
@@ -713,10 +719,14 @@ INST_DEF(INC)
 INST_DEF(INX)
 {
     this->reg.X++;
+    SET_N(this, this->reg.X);
+    SET_Z(this, this->reg.X);
 }
 INST_DEF(INY)
 {
     this->reg.Y++;
+    SET_N(this, this->reg.Y);
+    SET_Z(this, this->reg.Y);
 }
 
 
@@ -1111,14 +1121,14 @@ INST_DEF(JSR)
 {
     if(mode != E6502_INS_MODE_ADDR)
         return;
-    STORE(this, (this->reg.SP++)+E6502_STACK_OFFSET, GET_HIGH_BYTE(this->reg.PC-1));
-    STORE(this, (this->reg.SP++)+E6502_STACK_OFFSET, GET_LOW_BYTE(this->reg.PC-1));
+    STACK_PUSH(this, GET_HIGH_BYTE(this->reg.PC-1));
+    STACK_PUSH(this, GET_LOW_BYTE(this->reg.PC-1));
     this->reg.PC = addr;
 }
 INST_DEF(RTS)
 {
-    uint8_t l = LOAD(this, (--this->reg.SP)+E6502_STACK_OFFSET);
-    uint8_t h = LOAD(this, (--this->reg.SP)+E6502_STACK_OFFSET);
+    uint8_t l = STACK_POP(this);
+    uint8_t h = STACK_POP(this);
     this->reg.PC = PACK_2U8(h,l)+1;
 }
 
@@ -1132,9 +1142,9 @@ INST_DEF(BRK)
 }
 INST_DEF(RTI)
 {
-    this->reg.status.byte = LOAD(this, (--this->reg.SP)+E6502_STACK_OFFSET);
-    uint8_t l = LOAD(this, (--this->reg.SP)+E6502_STACK_OFFSET);
-    uint8_t h = LOAD(this, (--this->reg.SP)+E6502_STACK_OFFSET);
+    this->reg.status.byte = STACK_POP(this);
+    uint8_t l = STACK_POP(this);
+    uint8_t h = STACK_POP(this);
     this->reg.PC = PACK_2U8(h,l);
 }
 
@@ -1173,7 +1183,7 @@ ADDR_MODE_DEF(absolute_x)
 {
     uint8_t l = LOAD(this, this->reg.PC++);
     uint8_t h = LOAD(this, this->reg.PC++);
-    *p_addr = PACK_2U8(h,l) + this->reg.X;
+    *p_addr = (PACK_2U8(h,l) + this->reg.X) & 0xFFFF;
     return E6502_INS_MODE_ADDR;
 }
 
@@ -1181,7 +1191,7 @@ ADDR_MODE_DEF(absolute_y)
 {
     uint8_t l = LOAD(this, this->reg.PC++);
     uint8_t h = LOAD(this, this->reg.PC++);
-    *p_addr = PACK_2U8(h,l) + this->reg.Y;
+    *p_addr = (PACK_2U8(h,l) + this->reg.Y) & 0xFFFF;
     return E6502_INS_MODE_ADDR;
 }
 
@@ -1210,7 +1220,7 @@ ADDR_MODE_DEF(indirect)
 ADDR_MODE_DEF(x_indirect)
 {
     uint8_t temp = LOAD(this, this->reg.PC++);
-    temp += this->reg.X;
+    temp = (temp + this->reg.X) & 0xFF;
     uint8_t l = LOAD(this, temp++);
     uint8_t h = LOAD(this, temp);
     *p_addr = PACK_2U8(h,l);
@@ -1222,7 +1232,7 @@ ADDR_MODE_DEF(indirect_y)
     uint8_t temp = LOAD(this, this->reg.PC++);
     uint8_t l = LOAD(this, temp++);
     uint8_t h = LOAD(this, temp);
-    *p_addr = PACK_2U8(h,l) + this->reg.Y;
+    *p_addr = (PACK_2U8(h,l) + this->reg.Y) & 0xFFFF;
     return E6502_INS_MODE_ADDR;
 }
 
@@ -1230,7 +1240,7 @@ ADDR_MODE_DEF(relative)
 {
     uint8_t temp = LOAD(this, this->reg.PC);
     /** PC for the op code + temp */
-    *p_addr = (uint16_t)(this->reg.PC - 1 + (*((int8_t*)&temp)));
+    *p_addr = (this->reg.PC - 1 + (*((int8_t*)&temp))) & 0xFFFF;
     this->reg.PC++;
     return E6502_INS_MODE_ADDR;
 }
@@ -1243,13 +1253,13 @@ ADDR_MODE_DEF(zeropage)
 
 ADDR_MODE_DEF(zeropage_x)
 {
-    *p_addr = (uint8_t)(LOAD(this, this->reg.PC++)+this->reg.X);
+    *p_addr = (LOAD(this, this->reg.PC++)+this->reg.X) & 0xFF;
     return E6502_INS_MODE_ADDR;
 }
 
 ADDR_MODE_DEF(zeropage_y)
 {
-    *p_addr = (uint8_t)(LOAD(this, this->reg.PC++)+this->reg.Y);
+    *p_addr = (LOAD(this, this->reg.PC++)+this->reg.Y) & 0xFF;
     return E6502_INS_MODE_ADDR;
 }
 
