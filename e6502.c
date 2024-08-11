@@ -805,8 +805,10 @@ INST_DEF(ADC)
         uint8_t result = buf % 100;
         result = DEC_AS_BIN[result];
         this->reg.status.bits.C = buf > 99;
+        /** V is not valid in BCD mode */
         this->reg.status.bits.V = buf > 99;
         this->reg.A = result;
+        /** N is not valid in BCD mode */
         SET_N(this, result);
         SET_Z(this, result);
     }
@@ -849,12 +851,14 @@ INST_DEF(SBC)
         /** DO NOT handle invalid BCD value */
         if (B == BCD_INVALID)
             return;
-        uint16_t buf = A-B-(!this->reg.status.bits.C);
+        int16_t buf = A-B-(!this->reg.status.bits.C);
         uint8_t result = (buf+100) % 100;
         result = DEC_AS_BIN[result];
         this->reg.status.bits.C = A>=B; /** not borrow */
+        /** V is not valid in BCD mode */
         this->reg.status.bits.V = A<B;
         this->reg.A = result;
+        /** N is not valid in BCD mode */
         SET_N(this, result);
         SET_Z(this, result);
     }
