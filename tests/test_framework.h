@@ -6,8 +6,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "../../e6502.h"
-#include "../../asm6502.h"
+#include "../e6502.h"
+#include "../asm6502.h"
 
 void test_dump_cpu(e6502_t* cpu);
 

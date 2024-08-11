@@ -3,8 +3,8 @@ CFALGS?=-g -O0
 ALL_TESTS_SRC=$(wildcard *test.c)
 ALL_TESTS=$(ALL_TESTS_SRC:.c=)
 
-COMMON_SRC=test_framework.c ../../e6502.c
-COMMON_HEADERS=test_framework.h ../../e6502.h ../../asm6502.h
+COMMON_SRC=test_framework.c ../e6502.c
+COMMON_HEADERS=test_framework.h ../e6502.h ../asm6502.h
 
 .PHONY: all
 all: $(ALL_TESTS)
