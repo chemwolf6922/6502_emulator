@@ -1242,10 +1242,8 @@ ADDR_MODE_DEF(indirect_y)
 
 ADDR_MODE_DEF(relative)
 {
-    uint8_t temp = LOAD(this, this->reg.PC);
-    /** PC for the op code + temp */
-    *p_addr = (this->reg.PC - 1 + (*((int8_t*)&temp))) & 0xFFFF;
-    this->reg.PC++;
+    uint8_t temp = LOAD(this, this->reg.PC++);
+    *p_addr = (this->reg.PC + (*((int8_t*)&temp))) & 0xFFFF;
     return E6502_INS_MODE_ADDR;
 }
 

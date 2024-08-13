@@ -22,34 +22,34 @@ void free_program_strs(char** strs);
 #define VALIDATE_REG(name, value) \
     do \
     { \
-        if (cpu.reg.name == value) \
+        if (cpu.reg.name == (value)) \
         { \
             break; \
         } \
         test_pass = false; \
-        printf("\033[0;31mFAIL: reg %s: expected %X, actual %X\033[0m\n", #name, value, cpu.reg.name); \
+        printf("\033[0;31mFAIL: reg %s: expected %X, actual %X\033[0m\n", #name, (value), cpu.reg.name); \
     } while (0)
 
 #define VALIDATE_MEM(addr, value) \
     do \
     { \
-        if (memory[addr] == value) \
+        if (memory[(addr)] == (value)) \
         { \
             break; \
         } \
         test_pass = false; \
-        printf("\033[0;31mFAIL: mem %04X: expected %02X, actual %02X\033[0m\n", addr, value, memory[addr]); \
+        printf("\033[0;31mFAIL: mem %04X: expected %02X, actual %02X\033[0m\n", (addr), (value), memory[(addr)]); \
     } while (0)
 
 #define VALIDATE_FLAG(name, value) \
     do \
     { \
-        if (cpu.reg.status.bits.name == value) \
+        if (cpu.reg.status.bits.name == (value)) \
         { \
             break; \
         } \
         test_pass = false; \
-        printf("\033[0;31mFAIL: flag %s: expected %d, actual %d\033[0m\n", #name, value, cpu.reg.status.bits.name); \
+        printf("\033[0;31mFAIL: flag %s: expected %d, actual %d\033[0m\n", #name, (value), cpu.reg.status.bits.name); \
     } while (0)
 
 #define PROGRAM_ENTRY (0xF000)
