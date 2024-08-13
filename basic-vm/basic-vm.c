@@ -67,6 +67,7 @@ int main(int argc, char const *argv[])
     e6502_init(&cpu);
     cpu.cb.load = vm_load;
     cpu.cb.store = vm_store;
+    cpu.iface.reset(&cpu);
     
     while (running)
     {
