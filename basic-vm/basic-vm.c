@@ -12,15 +12,41 @@ bool running = true;
 
 static uint8_t vm_load(uint16_t addr, void* ctx)
 {
-    return memory[addr];
+    if ((addr & 0xF000) ^ PERIPHERAL_BASE)
+    {
+        return memory[addr];
+    }
+    else
+    {
+        switch (addr)
+        {
+        case TERMINAL_READ:
+            return getchar();
+        default:
+            return 0;
+        }
+    }
 }
 
 static void vm_store(uint16_t addr, uint8_t data, void* ctx)
 {
-    memory[addr] = data;
-    if (addr == EXIT_POINT_RC)
+    if ((addr & 0xF000) ^ PERIPHERAL_BASE)
     {
-        running = false;
+        memory[addr] = data;
+    }
+    else
+    {   
+        switch (addr)
+        {
+        case EXIT_POINT_RC:
+            running = false;
+            break;
+        case TERMINAL_WRITE:
+            putchar(data);
+            break;
+        default:
+            break;
+        }
     }
 }
 
